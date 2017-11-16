@@ -3,7 +3,7 @@
 "2Ld-md-U2v.headerCell.title" = "Famille";
 
 /* Class = "NSTextFieldCell"; placeholderString = "Type to filter..."; ObjectID = "DwS-ve-MLJ"; */
-"DwS-ve-MLJ.placeholderString" = "Type à filtrer...";
+"DwS-ve-MLJ.placeholderString" = "Type à filtrer…";
 
 /* Class = "NSWindow"; title = "Choose a Font"; ObjectID = "F0z-JX-Cv5"; */
 "F0z-JX-Cv5.title" = "Choisissez une police";

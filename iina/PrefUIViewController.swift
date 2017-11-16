@@ -9,28 +9,22 @@
 import Cocoa
 import MASPreferences
 
+@objcMembers
 class PrefUIViewController: NSViewController, MASPreferencesViewController {
 
-  override var nibName: String {
-    return "PrefUIViewController"
+  override var nibName: NSNib.Name {
+    return NSNib.Name("PrefUIViewController")
   }
 
-  override var identifier: String? {
+  var viewIdentifier: String = "PrefUIViewController"
+
+  var toolbarItemImage: NSImage? {
     get {
-      return "ui"
-    }
-    set {
-      super.identifier = newValue
+      return #imageLiteral(resourceName: "toolbar_play")
     }
   }
 
-  var toolbarItemImage: NSImage {
-    get {
-      return NSImage(named: "toolbar_play")!
-    }
-  }
-
-  var toolbarItemLabel: String {
+  var toolbarItemLabel: String? {
     get {
       view.layoutSubtreeIfNeeded()
       return NSLocalizedString("preference.ui", comment: "UI")
@@ -42,6 +36,7 @@ class PrefUIViewController: NSViewController, MASPreferencesViewController {
 
   @IBOutlet weak var oscPreviewImageView: NSImageView!
   @IBOutlet weak var oscPositionPopupButton: NSPopUpButton!
+  @IBOutlet weak var thumbCacheSizeLabel: NSTextField!
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -60,7 +55,26 @@ class PrefUIViewController: NSViewController, MASPreferencesViewController {
     default:
       name = "osc_float"
     }
-    oscPreviewImageView.image = NSImage(named: name)
+    oscPreviewImageView.image = NSImage(named: NSImage.Name(rawValue: name))
+  }
+
+  @IBAction func clearCacheBtnAction(_ sender: AnyObject) {
+    if Utility.quickAskPanel("clear_cache") {
+      try? FileManager.default.removeItem(atPath: Utility.thumbnailCacheURL.path)
+      Utility.createDirIfNotExist(url: Utility.thumbnailCacheURL)
+      updateThumbnailCacheStat()
+      Utility.showAlert("clear_cache.success", style: .informational)
+    }
+  }
+
+  override func viewDidAppear() {
+    DispatchQueue.main.async {
+      self.updateThumbnailCacheStat()
+    }
+  }
+
+  private func updateThumbnailCacheStat() {
+    thumbCacheSizeLabel.stringValue = FileSize.format(CacheManager.shared.getCacheSize(), unit: .b)
   }
 
 }

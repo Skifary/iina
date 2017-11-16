@@ -1,3 +1,5 @@
+#/usr/bin/swift
+
 import Cocoa
 
 class Regex {
@@ -25,9 +27,9 @@ class Regex {
     if let matches = regex?.matches(in: str, options: [], range: NSMakeRange(0, str.characters.count)) {
       matches.forEach { match in
         for i in 0..<match.numberOfRanges {
-          let range = match.rangeAt(i)
+          let range = match.range(at: i)
           if range.length > 0 {
-            result.append((str as NSString).substring(with: match.rangeAt(i)))
+            result.append((str as NSString).substring(with: match.range(at: i)))
           } else {
             result.append("")
           }
@@ -42,7 +44,10 @@ class Regex {
 let ignorePlaceHolderTitle = true
 let checkRedundantKey = false
 
-let languages = ["de", "fr", "it", "ja", "ko", "pl", "zh-Hans", "zh-Hant"]
+let languages = ["de", "fr", "it", "ja", "ko", "pl", "zh-Hans", "zh-Hant", "ru", "tr", "es", "uk", "nl", "sk"]
+var testLanguages: [String] = []
+
+let ignoredStrings = ["Label", "Multiline Label", "Text Cell", "Box", "Table View Cell", "Title", "Item", "Context Menu", "0:00:00", "00:00 AM", "9:99:99", "999:99"]
 
 var stat: [String: Int] = {
   var dic: [String: Int] = [:]
@@ -106,10 +111,10 @@ func sameArray(_ a: [String], _ b: [String]) -> Bool {
 
 func makeSure(fileExists file: String, withExtension ext: String, basedOn base: BaseLang) {
   let fullname = "\(file).\(ext)"
-  for lang in languages {
+  for lang in testLanguages {
     if base == .zhHans && lang == "zh-Hans" { continue }
     guard lang.directory.file(fullname).exists else {
-      print("  [x][\(lang)] File \"\(fullname)\" doesn't extst")
+      print("  [x][\(lang)] File \"\(fullname)\" doesn't exist")
       stat[lang]! += 1
       continue
     }
@@ -121,13 +126,13 @@ func makeSure(allKeysExistInFile file: String, basedOn base: BaseLang) {
   let fullname = "\(file).strings"
   guard let baseDic = baseLang.directory.file(fullname).stringsContent else { return }
 
-  for lang in languages {
+  for lang in testLanguages {
     if base == .zhHans && lang == "zh-Hans" { continue }
     guard var langDic = lang.directory.file(fullname).stringsContent else { stat[lang]! += 1; return }
     // for all keys in base dic
     for (key, baseValue) in baseDic {
       // check whether key exist
-      if ignorePlaceHolderTitle && (baseValue == "Label" || baseValue == "Text Cell") { continue }
+      if ignorePlaceHolderTitle && ignoredStrings.contains(baseValue) { continue }
       if let value = langDic[key] {
         // check whether has formatting problem
         if fmtRegexp.matches(baseValue) {
@@ -157,6 +162,26 @@ func makeSure(allKeysExistInFile file: String, basedOn base: BaseLang) {
 
 // start
 
+let arguments = CommandLine.arguments
+
+if arguments.count == 1 {
+  print("usage: ./check_translation.swift lang [lang2 ...] | all")
+  exit(0)
+}
+
+if arguments.count == 2 && arguments[1] == "all" {
+  testLanguages = languages
+} else {
+  for i in 1..<arguments.count {
+    if !languages.contains(arguments[i]) {
+      print("Unknown language. Exit.")
+      exit(1)
+    } else {
+      testLanguages.append(arguments[i])
+    }
+  }
+}
+
 guard let rawFileList = try? fm.contentsOfDirectory(atPath: "Base".directory) else {
   print("[ERROR] Cannot get file list")
   exit(1)
@@ -183,4 +208,7 @@ for file in fileList {
 }
 
 print("\nFinished. Issues count:")
-print(stat)
+for lang in testLanguages {
+  print(lang, stat[lang]!)
+}
+

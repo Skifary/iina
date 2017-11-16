@@ -12,10 +12,10 @@ class Regex {
 
   static let aspect = Regex("\\A\\d+(\\.\\d+)?:\\d+(\\.\\d+)?\\Z")
   static let httpFileName = Regex("attachment; filename=(.+?)\\Z")
-  static let tagVersion = Regex("\\Av(\\d+\\.\\d+\\.\\d+)\\Z")
   static let urlDetect = Regex("^(https?|ftp)://[^\\s/$.?#].[^\\s]*$")
   static let iso639_2Desc = Regex("^.+?\\(([a-z]{3})\\)$")
   static let geometry = Regex("^((\\d+%?)?(x(\\d+%?))?)?((\\+|\\-)(\\d+%?)(\\+|\\-)(\\d+%?))?$")
+  static let mpvURL = Regex("^[A-z0-9_]+://")
 
   var regex: NSRegularExpression?
 
@@ -28,7 +28,7 @@ class Regex {
   }
 
   func matches(_ str: String) -> Bool {
-    if let matches = regex?.numberOfMatches(in: str, options: [], range: NSMakeRange(0, str.characters.count)) {
+    if let matches = regex?.numberOfMatches(in: str, options: [], range: NSMakeRange(0, str.count)) {
       return matches > 0
     } else {
       return false
@@ -37,11 +37,11 @@ class Regex {
 
   func captures(in str: String) -> [String] {
     var result: [String] = []
-    if let match = regex?.firstMatch(in: str, options: [], range: NSMakeRange(0, str.characters.count)) {
+    if let match = regex?.firstMatch(in: str, options: [], range: NSMakeRange(0, str.count)) {
       for i in 0..<match.numberOfRanges {
-        let range = match.rangeAt(i)
+        let range = match.range(at: i)
         if range.length > 0 {
-          result.append((str as NSString).substring(with: match.rangeAt(i)))
+          result.append((str as NSString).substring(with: match.range(at: i)))
         } else {
           result.append("")
         }

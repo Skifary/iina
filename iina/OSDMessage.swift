@@ -3,7 +3,7 @@
 //  iina
 //
 //  Created by lhc on 27/7/16.
-//  Copyright © 2016年 lhc. All rights reserved.
+//  Copyright © 2016 lhc. All rights reserved.
 //
 
 /// Available constants in OSD messages:
@@ -86,7 +86,7 @@ enum OSDMessage {
     case .volume(let value):
       return (
         String(format: NSLocalizedString("osd.volume", comment: "Volume: %i"), value),
-        .withProgress(Double(value) / 100)
+        .withProgress(Double(value) / Double(Preference.integer(for: .maxVolume)))
       )
 
     case .speed(let value):

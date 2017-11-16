@@ -41,33 +41,45 @@ class OnlineSubtitle: NSObject {
     self.index = index
   }
 
-  static func getSub(forFile url: URL, from userSource: Source? = nil, callback: @escaping SubCallback) {
+  static func getSub(forFile url: URL, from userSource: Source? = nil, playerCore: PlayerCore, callback: @escaping SubCallback) {
 
     var source: Source
 
     if userSource == nil {
-      source = Source(rawValue: UserDefaults.standard.integer(forKey: Preference.Key.onlineSubSource)) ?? .openSub
+      source = Source(rawValue: Preference.integer(for: .onlineSubSource)) ?? .openSub
     } else {
       source = userSource!
     }
 
-    PlayerCore.shared.sendOSD(.startFindingSub(source.name))
+    playerCore.sendOSD(.startFindingSub(source.name))
 
     switch source {
     case .shooter:
       // shooter
       let subSupport = ShooterSupport()
-      if let info = subSupport.hash(url) {
-        subSupport.request(info, callback: callback)
-      } else {
-        // if cannot get hash, treat as sub not found
-        callback([])
+      subSupport.hash(url)
+      .then { info in
+        subSupport.request(info)
+      }.then { subs in
+        callback(subs)
+      }.catch { error in
+        let osdMessage: OSDMessage
+        switch error {
+        case ShooterSupport.ShooterError.cannotReadFile,
+             ShooterSupport.ShooterError.fileTooSmall:
+          osdMessage = .fileError
+        case ShooterSupport.ShooterError.networkError:
+          osdMessage = .networkError
+        default:
+          osdMessage = .networkError
+          playerCore.sendOSD(osdMessage)
+        }
       }
     case .openSub:
       // opensubtitles
       let subSupport = OpenSubSupport.shared
       // - language
-      let userLang = UserDefaults.standard.string(forKey: Preference.Key.subLang) ?? ""
+      let userLang = Preference.string(for: .subLang) ?? ""
       if userLang.isEmpty {
         Utility.showAlert("sub_lang_not_set")
         subSupport.language = "eng"
@@ -76,7 +88,7 @@ class OnlineSubtitle: NSObject {
       }
       // - request
       subSupport.login()
-      .then {
+      .then { _ in
         subSupport.hash(url)
       }.then { info in
         subSupport.request(info)
@@ -101,7 +113,7 @@ class OnlineSubtitle: NSObject {
         default:
           osdMessage = .networkError
         }
-        PlayerCore.shared.sendOSD(osdMessage)
+        playerCore.sendOSD(osdMessage)
       }
     }
   }

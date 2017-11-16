@@ -3,7 +3,7 @@
 //  iina
 //
 //  Created by lhc on 31/8/16.
-//  Copyright © 2016年 lhc. All rights reserved.
+//  Copyright © 2016 lhc. All rights reserved.
 //
 
 import Cocoa
@@ -13,11 +13,21 @@ class MenuController: NSObject, NSMenuDelegate {
   /** For convinent bindings. see `bind(...)` below. [menu: check state block] */
   private var menuBindingList: [NSMenu: (NSMenuItem) -> Bool] = [:]
 
+  private var stringForOpen: String!
+  private var stringForOpenAlternative: String!
+  private var stringForOpenURL: String!
+  private var stringForOpenURLAlternative: String!
+
   // File
   @IBOutlet weak var file: NSMenuItem!
   @IBOutlet weak var open: NSMenuItem!
+  @IBOutlet weak var openAlternative: NSMenuItem!
+  @IBOutlet weak var openURL: NSMenuItem!
+  @IBOutlet weak var openURLAlternative: NSMenuItem!
   @IBOutlet weak var savePlaylist: NSMenuItem!
   @IBOutlet weak var deleteCurrentFile: NSMenuItem!
+  @IBOutlet weak var newWindow: NSMenuItem!
+  @IBOutlet weak var newWindowSeparator: NSMenuItem!
   // Playback
   @IBOutlet weak var playbackMenu: NSMenu!
   @IBOutlet weak var pause: NSMenuItem!
@@ -62,6 +72,7 @@ class MenuController: NSObject, NSMenuDelegate {
   @IBOutlet weak var mirror: NSMenuItem!
   @IBOutlet weak var flip: NSMenuItem!
   @IBOutlet weak var deinterlace: NSMenuItem!
+  @IBOutlet weak var delogo: NSMenuItem!
   @IBOutlet weak var videoFilters: NSMenuItem!
   //Audio
   @IBOutlet weak var audioMenu: NSMenu!
@@ -99,6 +110,7 @@ class MenuController: NSObject, NSMenuDelegate {
   // Window
   @IBOutlet weak var customTouchBar: NSMenuItem!
   @IBOutlet weak var inspector: NSMenuItem!
+  @IBOutlet weak var miniPlayer: NSMenuItem!
 
 
   // MARK: - Construct Menus
@@ -107,35 +119,48 @@ class MenuController: NSObject, NSMenuDelegate {
 
     // File menu
     
-    savePlaylist.action = #selector(MainWindowController.menuSavePlaylist(_:))
-    deleteCurrentFile.action = #selector(MainWindowController.menuDeleteCurrentFile(_:))
+    savePlaylist.action = #selector(MainMenuActionHandler.menuSavePlaylist(_:))
+    deleteCurrentFile.action = #selector(MainMenuActionHandler.menuDeleteCurrentFile(_:))
+
+    stringForOpen = open.title
+    stringForOpenURL = openURL.title
+    stringForOpenAlternative = openAlternative.title
+    stringForOpenURLAlternative = openURLAlternative.title
+
+    updateOpenMenuItems()
+    UserDefaults.standard.addObserver(self, forKeyPath: Preference.Key.alwaysOpenInNewWindow.rawValue, options: [], context: nil)
+
+    if Preference.bool(for: .enableCmdN) {
+      newWindowSeparator.isHidden = false
+      newWindow.isHidden = false
+    }
     
     // Playback menu
 
     playbackMenu.delegate = self
 
-    pause.action = #selector(MainWindowController.menuTogglePause(_:))
-    stop.action = #selector(MainWindowController.menuStop(_:))
+    pause.action = #selector(MainMenuActionHandler.menuTogglePause(_:))
+    stop.action = #selector(MainMenuActionHandler.menuStop(_:))
 
     // -- seeking
-    forward.action = #selector(MainWindowController.menuStep(_:))
-    nextFrame.action = #selector(MainWindowController.menuStepFrame(_:))
-    backward.action = #selector(MainWindowController.menuStep(_:))
-    previousFrame.action = #selector(MainWindowController.menuStepFrame(_:))
-    jumpToBegin.action = #selector(MainWindowController.menuJumpToBegin(_:))
-    jumpTo.action = #selector(MainWindowController.menuJumpTo(_:))
+    forward.action = #selector(MainMenuActionHandler.menuStep(_:))
+    nextFrame.action = #selector(MainMenuActionHandler.menuStepFrame(_:))
+    backward.action = #selector(MainMenuActionHandler.menuStep(_:))
+    previousFrame.action = #selector(MainMenuActionHandler.menuStepFrame(_:))
+    jumpToBegin.action = #selector(MainMenuActionHandler.menuJumpToBegin(_:))
+    jumpTo.action = #selector(MainMenuActionHandler.menuJumpTo(_:))
 
     // -- screenshot
-    screenShot.action = #selector(MainWindowController.menuSnapshot(_:))
+    screenShot.action = #selector(MainMenuActionHandler.menuSnapshot(_:))
     gotoScreenshotFolder.action = #selector(AppDelegate.menuOpenScreenshotFolder(_:))
 //    advancedScreenShot
 
     // -- list and chapter
-    abLoop.action = #selector(MainWindowController.menuABLoop(_:))
-    fileLoop.action = #selector(MainWindowController.menuFileLoop(_:))
+    abLoop.action = #selector(MainMenuActionHandler.menuABLoop(_:))
+    fileLoop.action = #selector(MainMenuActionHandler.menuFileLoop(_:))
     playlistMenu.delegate = self
     chapterMenu.delegate = self
-    playlistLoop.action = #selector(MainWindowController.menuPlaylistLoop(_:))
+    playlistLoop.action = #selector(MainMenuActionHandler.menuPlaylistLoop(_:))
     playlistPanel.action = #selector(MainWindowController.menuShowPlaylistPanel(_:))
     chapterPanel.action = #selector(MainWindowController.menuShowChaptersPanel(_:))
 
@@ -154,7 +179,7 @@ class MenuController: NSObject, NSMenuDelegate {
 
     // -- screen
     fullScreen.action = #selector(MainWindowController.menuToggleFullScreen(_:))
-    if #available(OSX 10.12, *) {
+    if #available(macOS 10.12, *) {
       pictureInPicture.action = #selector(MainWindowController.menuTogglePIP(_:))
     } else {
       videoMenu.removeItem(pictureInPicture)
@@ -163,31 +188,40 @@ class MenuController: NSObject, NSMenuDelegate {
 
     // -- aspect
     var aspectList = AppData.aspects
+    // we need to set the represented object separately, since `Constants.String.default` may be localized.
+    var aspectListObject = AppData.aspects
     aspectList.insert(Constants.String.default, at: 0)
-    bind(menu: aspectMenu, withOptions: aspectList, objects: nil, objectMap: nil, action: #selector(MainWindowController.menuChangeAspect(_:))) {
-      PlayerCore.shared.info.unsureAspect == $0.representedObject as? String
+    aspectListObject.insert("Default", at: 0)
+    bind(menu: aspectMenu, withOptions: aspectList, objects: aspectListObject, objectMap: nil, action: #selector(MainMenuActionHandler.menuChangeAspect(_:))) {
+      PlayerCore.active.info.unsureAspect == $0.representedObject as? String
     }
 
     // -- crop
     var cropList = AppData.aspects
+    // same as aspectList above.
+    var cropListForObject = AppData.aspects
     cropList.insert(Constants.String.none, at: 0)
-    bind(menu: cropMenu, withOptions: cropList, objects: nil, objectMap: nil, action: #selector(MainWindowController.menuChangeCrop(_:))) {
-      PlayerCore.shared.info.unsureCrop == $0.representedObject as? String
+    cropListForObject.insert("None", at: 0)
+    bind(menu: cropMenu, withOptions: cropList, objects: cropListForObject, objectMap: nil, action: #selector(MainMenuActionHandler.menuChangeCrop(_:))) {
+      return PlayerCore.active.info.unsureCrop == $0.representedObject as? String
     }
 
     // -- rotation
     let rotationTitles = AppData.rotations.map { "\($0)\(Constants.String.degree)" }
-    bind(menu: rotationMenu, withOptions: rotationTitles, objects: AppData.rotations, objectMap: nil, action: #selector(MainWindowController.menuChangeRotation(_:))) {
-      PlayerCore.shared.info.rotation == $0.representedObject as? Int
+    bind(menu: rotationMenu, withOptions: rotationTitles, objects: AppData.rotations, objectMap: nil, action: #selector(MainMenuActionHandler.menuChangeRotation(_:))) {
+      PlayerCore.active.info.rotation == $0.representedObject as? Int
     }
 
     // -- flip and mirror
     flipMenu.delegate = self
-    flip.action = #selector(MainWindowController.menuToggleFlip(_:))
-    mirror.action = #selector(MainWindowController.menuToggleMirror(_:))
+    flip.action = #selector(MainMenuActionHandler.menuToggleFlip(_:))
+    mirror.action = #selector(MainMenuActionHandler.menuToggleMirror(_:))
 
     // -- deinterlace
-    deinterlace.action = #selector(MainWindowController.menuToggleDeinterlace(_:))
+    deinterlace.action = #selector(MainMenuActionHandler.menuToggleDeinterlace(_:))
+
+    // -- delogo
+    delogo.action = #selector(MainWindowController.menuSetDelogo(_:))
 
     // -- filter
     videoFilters.action = #selector(AppDelegate.showVideoFilterWindow(_:))
@@ -201,16 +235,16 @@ class MenuController: NSObject, NSMenuDelegate {
     // - volume
     (increaseVolume.representedObject, decreaseVolume.representedObject, increaseVolumeSlightly.representedObject, decreaseVolumeSlightly.representedObject) = (5, -5, 1, -1)
     for item in [increaseVolume, decreaseVolume, increaseVolumeSlightly, decreaseVolumeSlightly] {
-      item?.action = #selector(MainWindowController.menuChangeVolume(_:))
+      item?.action = #selector(MainMenuActionHandler.menuChangeVolume(_:))
     }
-    mute.action = #selector(MainWindowController.menuToggleMute(_:))
+    mute.action = #selector(MainMenuActionHandler.menuToggleMute(_:))
 
     // - audio delay
     (increaseAudioDelay.representedObject, decreaseAudioDelay.representedObject) = (0.5, -0.5)
     for item in [increaseAudioDelay, decreaseAudioDelay] {
-      item?.action = #selector(MainWindowController.menuChangeAudioDelay(_:))
+      item?.action = #selector(MainMenuActionHandler.menuChangeAudioDelay(_:))
     }
-    resetAudioDelay.action = #selector(MainWindowController.menuResetAudioDelay(_:))
+    resetAudioDelay.action = #selector(MainMenuActionHandler.menuResetAudioDelay(_:))
 
     // - audio device
     audioDeviceMenu.delegate = self
@@ -222,40 +256,56 @@ class MenuController: NSObject, NSMenuDelegate {
 
     subMenu.delegate = self
     quickSettingsSub.action = #selector(MainWindowController.menuShowSubQuickSettings(_:))
-    loadExternalSub.action = #selector(MainWindowController.menuLoadExternalSub(_:))
+    loadExternalSub.action = #selector(MainMenuActionHandler.menuLoadExternalSub(_:))
     subTrackMenu.delegate = self
     secondSubTrackMenu.delegate = self
 
-    findOnlineSub.action = #selector(MainWindowController.menuFindOnlineSub(_:))
-    saveDownloadedSub.action = #selector(MainWindowController.saveDownloadedSub(_:))
+    findOnlineSub.action = #selector(MainMenuActionHandler.menuFindOnlineSub(_:))
+    saveDownloadedSub.action = #selector(MainMenuActionHandler.saveDownloadedSub(_:))
 
     // - text size
     [increaseTextSize, decreaseTextSize, resetTextSize].forEach {
-      $0.action = #selector(MainWindowController.menuChangeSubScale(_:))
+      $0.action = #selector(MainMenuActionHandler.menuChangeSubScale(_:))
     }
 
     // - delay
     (increaseSubDelay.representedObject, decreaseSubDelay.representedObject) = (0.5, -0.5)
     for item in [increaseSubDelay, decreaseSubDelay] {
-      item?.action = #selector(MainWindowController.menuChangeSubDelay(_:))
+      item?.action = #selector(MainMenuActionHandler.menuChangeSubDelay(_:))
     }
-    resetSubDelay.action = #selector(MainWindowController.menuResetSubDelay(_:))
+    resetSubDelay.action = #selector(MainMenuActionHandler.menuResetSubDelay(_:))
 
     // encoding
-    bind(menu: encodingMenu, withOptions: nil, objects: nil, objectMap: AppData.encodings, action: #selector(MainWindowController.menuSetSubEncoding(_:))) {
-      PlayerCore.shared.info.subEncoding == $0.representedObject as? String
+    let encodingTitles = AppData.encodings.map { $0.title }
+    let encodingObjects = AppData.encodings.map { $0.code }
+    bind(menu: encodingMenu, withOptions: encodingTitles, objects: encodingObjects, objectMap: nil, action: #selector(MainMenuActionHandler.menuSetSubEncoding(_:))) {
+      PlayerCore.active.info.subEncoding == $0.representedObject as? String
     }
-    subFont.action = #selector(MainWindowController.menuSubFont(_:))
+    subFont.action = #selector(MainMenuActionHandler.menuSubFont(_:))
+    // Separate Auto from other encoding types
+    encodingMenu.insertItem(NSMenuItem.separator(), at: 1)
 
     // Window
 
-    if #available(OSX 10.12.2, *) {
+    if #available(macOS 10.12.2, *) {
       customTouchBar.action = #selector(NSApplication.toggleTouchBarCustomizationPalette(_:))
     } else {
       customTouchBar.isHidden = true
     }
 
-    inspector.action = #selector(MainWindowController.menuShowInspector(_:))
+    inspector.action = #selector(MainMenuActionHandler.menuShowInspector(_:))
+    miniPlayer.action = #selector(MainWindowController.menuSwitchToMiniPlayer(_:))
+  }
+
+  override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
+    guard let keyPath = keyPath else { return }
+
+    switch keyPath {
+    case Preference.Key.alwaysOpenInNewWindow.rawValue:
+      updateOpenMenuItems()
+    default:
+      return
+    }
 
   }
 
@@ -263,66 +313,68 @@ class MenuController: NSObject, NSMenuDelegate {
 
   private func updatePlaylist() {
     playlistMenu.removeAllItems()
-    for (index, item) in PlayerCore.shared.info.playlist.enumerated() {
-      playlistMenu.addItem(withTitle: item.filenameForDisplay, action: #selector(MainWindowController.menuPlaylistItem(_:)),
+    for (index, item) in PlayerCore.active.info.playlist.enumerated() {
+      playlistMenu.addItem(withTitle: item.filenameForDisplay, action: #selector(MainMenuActionHandler.menuPlaylistItem(_:)),
                            tag: index, obj: nil, stateOn: item.isCurrent)
     }
   }
 
   private func updateChapterList() {
     chapterMenu.removeAllItems()
-    let info = PlayerCore.shared.info
+    let info = PlayerCore.active.info
     for (index, chapter) in info.chapters.enumerated() {
       let menuTitle = "\(chapter.time.stringRepresentation) - \(chapter.title)"
       let nextChapterTime = info.chapters.at(index+1)?.time ?? Constants.Time.infinite
       let isPlaying = info.videoPosition?.between(chapter.time, nextChapterTime) ?? false
-      chapterMenu.addItem(withTitle: menuTitle, action: #selector(MainWindowController.menuChapterSwitch(_:)),
+      chapterMenu.addItem(withTitle: menuTitle, action: #selector(MainMenuActionHandler.menuChapterSwitch(_:)),
                           tag: index, obj: nil, stateOn: isPlaying)
     }
   }
 
   private func updateTracks(forMenu menu: NSMenu, type: MPVTrack.TrackType) {
-    let info = PlayerCore.shared.info
+    let info = PlayerCore.active.info
     menu.removeAllItems()
-    let noTrackMenuItem = NSMenuItem(title: Constants.String.trackNone, action: #selector(MainWindowController.menuChangeTrack(_:)), keyEquivalent: "")
-    noTrackMenuItem.representedObject = MPVTrack.emptyTrack(type)
+    let noTrackMenuItem = NSMenuItem(title: Constants.String.trackNone, action: #selector(MainMenuActionHandler.menuChangeTrack(_:)), keyEquivalent: "")
+    noTrackMenuItem.representedObject = MPVTrack.emptyTrack(for: type)
     if info.trackId(type) == 0 {  // no track
-      noTrackMenuItem.state = NSOnState
+      noTrackMenuItem.state = .on
     }
     menu.addItem(noTrackMenuItem)
     for track in info.trackList(type) {
-      menu.addItem(withTitle: track.readableTitle, action: #selector(MainWindowController.menuChangeTrack(_:)),
+      menu.addItem(withTitle: track.readableTitle, action: #selector(MainMenuActionHandler.menuChangeTrack(_:)),
                              tag: nil, obj: (track, type), stateOn: track.id == info.trackId(type))
     }
   }
 
   private func updatePlaybackMenu() {
-    pause.title = PlayerCore.shared.info.isPaused ? Constants.String.resume : Constants.String.pause
-    let isLoop = PlayerCore.shared.mpvController.getFlag(MPVOption.PlaybackControl.loopFile)
-    fileLoop.state = isLoop ? NSOnState : NSOffState
-    let isPlaylistLoop = PlayerCore.shared.mpvController.getString(MPVOption.PlaybackControl.loopPlaylist)
-    playlistLoop.state = (isPlaylistLoop == "inf" || isPlaylistLoop == "force") ? NSOnState : NSOffState
+    pause.title = PlayerCore.active.info.isPaused ? Constants.String.resume : Constants.String.pause
+    let isLoop = PlayerCore.active.mpv.getFlag(MPVOption.PlaybackControl.loopFile)
+    fileLoop.state = isLoop ? .on : .off
+    let isPlaylistLoop = PlayerCore.active.mpv.getString(MPVOption.PlaybackControl.loopPlaylist)
+    playlistLoop.state = (isPlaylistLoop == "inf" || isPlaylistLoop == "force") ? .on : .off
   }
 
   private func updateVideoMenu() {
-    let isInFullScreen = PlayerCore.shared.mainWindow?.isInFullScreen ?? false
-    let isInPIP = PlayerCore.shared.mainWindow?.isInPIP ?? false
-    let isOntop = PlayerCore.shared.mainWindow?.isOntop ?? false
-    alwaysOnTop.state = isOntop ? NSOnState : NSOffState
-    deinterlace.state = PlayerCore.shared.info.deinterlace ? NSOnState : NSOffState
+    let isInFullScreen = PlayerCore.active.mainWindow.isInFullScreen
+    let isInPIP = PlayerCore.active.mainWindow.pipStatus == .inPIP
+    let isOntop = PlayerCore.active.isInMiniPlayer ? PlayerCore.active.miniPlayer.isOntop : PlayerCore.active.mainWindow.isOntop
+    let isDelogo = PlayerCore.active.info.delogoFiter != nil
+    alwaysOnTop.state = isOntop ? .on : .off
+    deinterlace.state = PlayerCore.active.info.deinterlace ? .on : .off
     fullScreen.title = isInFullScreen ? Constants.String.exitFullScreen : Constants.String.fullScreen
     pictureInPicture?.title = isInPIP ? Constants.String.exitPIP : Constants.String.pip
+    delogo.state = isDelogo ? .on : .off
   }
 
   private func updateAudioMenu() {
-    let player = PlayerCore.shared
-    volumeIndicator.title = String(format: NSLocalizedString("menu.volume", comment: "Volume:"), player.info.volume)
+    let player = PlayerCore.active
+    volumeIndicator.title = String(format: NSLocalizedString("menu.volume", comment: "Volume:"), Int(player.info.volume))
     audioDelayIndicator.title = String(format: NSLocalizedString("menu.audio_delay", comment: "Audio Delay:"), player.info.audioDelay)
   }
 
   private func updateAudioDevice() {
-    let devices = PlayerCore.shared.getAudioDevices()
-    let currAudioDevice = PlayerCore.shared.mpvController.getString(MPVProperty.audioDevice)
+    let devices = PlayerCore.active.getAudioDevices()
+    let currAudioDevice = PlayerCore.active.mpv.getString(MPVProperty.audioDevice)
     audioDeviceMenu.removeAllItems()
     devices.forEach { d in
       let name = d["name"]!
@@ -332,24 +384,32 @@ class MenuController: NSObject, NSMenuDelegate {
   }
 
   private func updateFlipAndMirror() {
-    let info = PlayerCore.shared.info
-    flip.state = info.flipFilter == nil ? NSOffState : NSOnState
-    mirror.state = info.mirrorFilter == nil ? NSOffState : NSOnState
+    let info = PlayerCore.active.info
+    flip.state = info.flipFilter == nil ? .off : .on
+    mirror.state = info.mirrorFilter == nil ? .off : .on
   }
 
   private func updateSubMenu() {
-    let player = PlayerCore.shared
+    let player = PlayerCore.active
     subDelayIndicator.title = String(format: NSLocalizedString("menu.sub_delay", comment: "Subtitle Delay:"), player.info.subDelay)
+    
+    let encodingCode = player.info.subEncoding ?? "auto"
+    for encoding in AppData.encodings {
+      if encoding.code == encodingCode {
+        encodingMenu.item(withTitle: encoding.title)?.state = .on
+      }
+    }
   }
 
   /**
    Bind a menu with a list of available options.
-   @param menu         the NSMenu
-   @param withOptions  option titles for each menu item, as an array
-   @param objects      objects that will be bind to each menu item, as an array
-   @param objectMap    alternatively, can pass a map like [title: object]
-   @action             the action for each menu item
-   @checkStateBlock    a block to set each menu item's state
+
+   - parameter menu:            the NSMenu
+   - parameter withOptions:     option titles for each menu item, as an array
+   - parameter objects:         objects that will be bind to each menu item, as an array
+   - parameter objectMap:       alternatively, can pass a map like [title: object]
+   - parameter action:          the action for each menu item
+   - parameter checkStateBlock: a block to set each menu item's state
    */
   private func bind(menu: NSMenu,
                     withOptions titles: [String]?, objects: [Any?]?,
@@ -386,6 +446,20 @@ class MenuController: NSObject, NSMenuDelegate {
     menuBindingList.updateValue(block, forKey: menu)
   }
 
+  private func updateOpenMenuItems() {
+    if Preference.bool(for: .alwaysOpenInNewWindow) {
+      open.title = stringForOpenAlternative
+      openAlternative.title = stringForOpen
+      openURL.title = stringForOpenURLAlternative
+      openURLAlternative.title = stringForOpenURL
+    } else {
+      open.title = stringForOpen
+      openAlternative.title = stringForOpenAlternative
+      openURL.title = stringForOpenURL
+      openURLAlternative.title = stringForOpenURLAlternative
+    }
+  }
+
   // MARK: - Menu delegate
 
   func menuWillOpen(_ menu: NSMenu) {
@@ -417,7 +491,7 @@ class MenuController: NSObject, NSMenuDelegate {
     // check convinently binded menus
     if let checkEnableBlock = menuBindingList[menu] {
       for item in menu.items {
-        item.state = checkEnableBlock(item) ? NSOnState : NSOffState
+        item.state = checkEnableBlock(item) ? .on : .off
       }
     }
   }

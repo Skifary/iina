@@ -3,7 +3,7 @@
 //  iina
 //
 //  Created by lhc on 8/7/16.
-//  Copyright © 2016年 lhc. All rights reserved.
+//  Copyright © 2016 lhc. All rights reserved.
 //
 
 import Cocoa
@@ -42,9 +42,9 @@ struct AppData {
   static let logFolder = "log"
   static let watchLaterFolder = "watch_later"
   static let historyFile = "history.plist"
+  static let thumbnailCacheFolder = "thumb_cache"
 
   static let githubLink = "https://github.com/lhc70000/iina"
-  static let githubReleaseLink = "https://github.com/lhc70000/iina/releases"
   static let wikiLink = "https://github.com/lhc70000/iina/wiki"
   static let websiteLink = "https://lhc70000.github.io/iina/"
   static let emailLink = "lhc199652@gmail.com"
@@ -55,15 +55,6 @@ struct AppData {
 
 
 struct Constants {
-  struct Identifier {
-    static let isChosen = "IsChosen"
-    static let trackName = "TrackName"
-    static let isPlayingCell = "IsPlayingCell"
-    static let trackNameCell = "TrackNameCell"
-    static let key = "Key"
-    static let value = "Value"
-    static let action = "Action"
-  }
   struct String {
     static let degree = "°"
     static let dot = "●"
@@ -83,6 +74,7 @@ struct Constants {
     static let exitPIP = NSLocalizedString("menu.exit_pip", comment: "Exit Picture-in-Picture")
   }
   struct Noti {
+    static let mainWindowChanged = Notification.Name("IINAMainWindowChanged")
     static let playlistChanged = Notification.Name("IINAPlaylistChanged")
     static let tracklistChanged = Notification.Name("IINATracklistChanged")
     static let vfChanged = Notification.Name("IINAVfChanged")
@@ -90,10 +82,19 @@ struct Constants {
     static let fsChanged = Notification.Name("IINAFullscreenChanged")
     static let ontopChanged = Notification.Name("IINAOnTopChanged")
     static let keyBindingInputChanged = Notification.Name("IINAkeyBindingInputChanged")
+    static let windowScaleChanged = Notification.Name("IINAWindowScaleChanged")
     static let fileLoaded = Notification.Name("IINAFileLoaded")
     static let historyUpdated = Notification.Name("IINAHistoryUpdated")
+    static let legacyFullScreen = Notification.Name("IINALegacyFullScreen")
   }
   struct Time {
     static let infinite = VideoTime(999, 0, 0)
+  }
+  struct FilterName {
+    static let crop = "iina_crop"
+    static let flip = "iina_flip"
+    static let mirror = "iina_mirror"
+    static let audioEq = "iina_aeq"
+    static let delogo = "iina_delogo"
   }
 }

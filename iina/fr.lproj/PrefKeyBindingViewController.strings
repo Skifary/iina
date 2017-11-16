@@ -6,7 +6,7 @@
 "4Bn-MF-dfY.headerCell.title" = "Action";
 
 /* Class = "NSButtonCell"; title = "New..."; ObjectID = "JYL-hr-KZT"; */
-"JYL-hr-KZT.title" = "Nouvelle...";
+"JYL-hr-KZT.title" = "Nouvelle…";
 
 /* Class = "NSTableColumn"; headerCell.title = "Key"; ObjectID = "JwC-60-7Hp"; */
 "JwC-60-7Hp.headerCell.title" = "Clé";
@@ -27,7 +27,7 @@
 "gDo-JL-a9k.title" = "Afficher le fichier de config dans le Finder";
 
 /* Class = "NSButtonCell"; title = "Duplicate..."; ObjectID = "gpZ-Rh-DMn"; */
-"gpZ-Rh-DMn.title" = "Dupliquer...";
+"gpZ-Rh-DMn.title" = "Dupliquer…";
 
 /* Class = "NSBox"; title = "Box"; ObjectID = "mLe-eI-lIk"; */
 "mLe-eI-lIk.title" = "Boîte";
